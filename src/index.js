@@ -38,7 +38,7 @@ class And {
         }).join("&");
     }
 }
-getAnd = (a, b) => {
+let getAnd = (a, b) => {
     return new And([a, b]);
 };
 class Or {
@@ -54,7 +54,7 @@ class Or {
         }).join("|");
     }
 }
-getOr = (a, b) => {
+let getOr = (a, b) => {
     return new Or([a, b]);
 };
 class Not {
@@ -68,7 +68,7 @@ class Not {
         return "!" + (this.p > this.b.p ? "(" : "") + this.b.toString() + (this.p > this.b.p ? ")" : "");
     }
 }
-getNot = (b) => {
+let getNot = (b) => {
     if (b.v === "Not") {
         return b.b;
     }
@@ -96,7 +96,7 @@ console.log(getNot(getNot(new Var(1))).toString());
 
 //all operators are binary.
 //parses text to the corresponding Bit expression
-parseToLogic = (text) => {
+let parseToLogic = (text) => {
     console.log("parsing to logic", text);
     let currentToken = "";
     let tokens = [];
@@ -144,7 +144,7 @@ parseToLogic = (text) => {
     // we have the tokens, consisting of expressions and operators.
 };
 //parses an array of tokens to the corresponding Bit expression.
-parseTokenArray = (tokens) => {
+let parseTokenArray = (tokens) => {
     if (tokens.length === 1) {
         return parseToLogic(tokens[0]);
     }
@@ -181,7 +181,7 @@ parseTokenArray = (tokens) => {
     throw "Don't understand tokens";
 };
 //parses a token containing a number or variable. returns a bit.
-parseToBase = (token) => {
+let parseToBase = (token) => {
     if (token[0] === "x") {
         return new Var(Number(token.slice(1)));
     }
@@ -190,9 +190,22 @@ parseToBase = (token) => {
 
 //add interactivity
 document.getElementById("goButton").addEventListener("click", () => {
-    text = document.getElementById("input").value;
+    let text = document.getElementById("input").value;
     console.log("text", text);
-    outputBit = parseToLogic(text);
+    let outputBit = parseToLogic(text);
     console.log(outputBit);
     document.getElementById("output").innerHTML = outputBit.toString();
 });
+
+import antlr4 from "antlr4";
+import ExpressionLexer from "../build/ExpressionLexer";
+import ExpressionParser from "../build/ExpressionParser";
+
+var input = "hello there";
+var chars = new antlr4.InputStream(input);
+var lexer = new ExpressionLexer(chars);
+var tokens = new antlr4.CommonTokenStream(lexer);
+var parser = new ExpressionParser(tokens);
+var tree = parser.r();
+console.log("Parsed", tree);
+console.log(tree.toStringTree(null, parser));
