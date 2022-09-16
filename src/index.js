@@ -94,118 +94,63 @@ let getNot = (b) => {
 console.log(getNot(new Var(1)).toString());
 console.log(getNot(getNot(new Var(1))).toString());
 
-//all operators are binary.
-//parses text to the corresponding Bit expression
-let parseToLogic = (text) => {
-    console.log("parsing to logic", text);
-    let currentToken = "";
-    let tokens = [];
-    endToken = () => {
-        tokens.push(currentToken);
-        currentToken = "";
-    };
-    let level = 0;
-    for (let letter of text) {
-        if (letter === " ") {
-            continue;
-        } else if (letter === "(") {
-            level += 1;
-        } else if (letter === ")") {
-            level -= 1;
-            if (level === 0) {
-                endToken();
-            }
-            if (level < 0) {
-                throw "unbalanced parens!";
-            }
-        } else {
-            if (["&", "|", "!"].includes(letter)) {
-                if (currentToken.length > 0) {
-                    endToken();
-                }
-                currentToken += letter;
-                endToken();
-            } else {
-                currentToken += letter;
-            }
-        }
+import antlr4 from "antlr4";
+import ExpressionLexer from "../build/ExpressionLexer";
+import ExpressionParser from "../build/ExpressionParser";
+import ExpressionVisitor from "../build/ExpressionVisitor";
+
+class Evaluate extends ExpressionVisitor {
+    // Visit a parse tree produced by ExpressionParser#input.
+    visitInput(ctx) {
+        return this.visitChildren(ctx);
     }
-    if (currentToken.length > 0) {
-        endToken();
+
+    // Visit a parse tree produced by ExpressionParser#variable.
+    visitVariable(ctx) {
+        return this.visitChildren(ctx);
     }
-    if (level !== 0) {
-        throw "unbalanced parens!";
+
+    // Visit a parse tree produced by ExpressionParser#number.
+    visitNumber(ctx) {
+        console.log("number", ctx);
+        console.log(ctx.getText());
+        return this.visitChildren(ctx);
     }
-    console.log("picked up tokens", tokens);
-    if (tokens.length === 1) {
-        return parseToBase(tokens[0]);
+
+    // Visit a parse tree produced by ExpressionParser#expr.
+    visitExpr(ctx) {
+        return this.visitChildren(ctx);
     }
-    return parseTokenArray(tokens);
-    // we have the tokens, consisting of expressions and operators.
-};
-//parses an array of tokens to the corresponding Bit expression.
-let parseTokenArray = (tokens) => {
-    if (tokens.length === 1) {
-        return parseToLogic(tokens[0]);
+
+    // Visit a parse tree produced by ExpressionParser#binOp.
+    visitBinOp(ctx) {
+        return this.visitChildren(ctx);
     }
-    for (let pair of [
-        ["|", getOr],
-        ["&", getAnd],
-        [
-            "!",
-            (first, second) => {
-                return getNot(second);
-            },
-        ],
-    ]) {
-        let op = pair[0];
-        let func = pair[1];
-        if (tokens.includes(op)) {
-            opIndex = tokens.indexOf(op);
-            let first = tokens.slice(0, opIndex);
-            let second = tokens.slice(opIndex + 1);
-            if (first.length === 1) {
-                first = parseToLogic(first[0]);
-            } else if (first.length > 0 /*necessary to handle !*/) {
-                first = parseTokenArray(first);
-            }
-            if (second.length === 1) {
-                second = parseToLogic(second[0]);
-            } else {
-                second = parseTokenArray(second);
-            }
-            return func(first, second);
-        }
+
+    // Visit a parse tree produced by ExpressionParser#unOp.
+    visitUnOp(ctx) {
+        return this.visitChildren(ctx);
     }
-    console.log("tokens", tokens);
-    throw "Don't understand tokens";
-};
-//parses a token containing a number or variable. returns a bit.
-let parseToBase = (token) => {
-    if (token[0] === "x") {
-        return new Var(Number(token.slice(1)));
+
+    // Visit a parse tree produced by ExpressionParser#exprPrimary.
+    visitExprPrimary(ctx) {
+        return this.visitChildren(ctx);
     }
-    return new Fixed(Number(token));
-};
+}
 
 //add interactivity
 document.getElementById("goButton").addEventListener("click", () => {
     let text = document.getElementById("input").value;
     console.log("text", text);
-    let outputBit = parseToLogic(text);
-    console.log(outputBit);
+    let stream = new antlr4.InputStream(text);
+    let lexer = new ExpressionLexer(stream);
+    let tokens = new antlr4.CommonTokenStream(lexer);
+    let parser = new ExpressionParser(tokens);
+    let tree = parser.expr();
+    console.log("Parsed", tree);
+    console.log(tree.toStringTree(null, parser));
+
+    let visitor = new Evaluate();
+    let outputBit = visitor.visit(tree);
     document.getElementById("output").innerHTML = outputBit.toString();
 });
-
-import antlr4 from "antlr4";
-import ExpressionLexer from "../build/ExpressionLexer";
-import ExpressionParser from "../build/ExpressionParser";
-
-var input = "hello there";
-var chars = new antlr4.InputStream(input);
-var lexer = new ExpressionLexer(chars);
-var tokens = new antlr4.CommonTokenStream(lexer);
-var parser = new ExpressionParser(tokens);
-var tree = parser.r();
-console.log("Parsed", tree);
-console.log(tree.toStringTree(null, parser));
