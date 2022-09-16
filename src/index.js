@@ -152,8 +152,15 @@ let getBitNot = (b) => {
     }
     return new Not(b);
 };
-// console.log(getBitNot(new Var(1)).toString());
-// console.log(getBitNot(getBitNot(new Var(1))).toString());
+/**
+ *
+ * @param {Bit} a
+ * @param {Bit} b
+ * @returns {Bit} a Bit corresponding to a^b, simplified if possible.
+ */
+let getBitXor = (a, b) => {
+    return getBitOr(getBitAnd(a, getBitNot(b)), getBitAnd(getBitNot(a), b));
+};
 
 // a bitstring
 /**
@@ -182,7 +189,9 @@ class Int {
     static fromInt(int) {
         let newA = [];
         for (let i = 0; i < N; i++) {
-            newA.push(new Fixed((int >> i) % 2));
+            let rem = int % 2;
+            newA.push(new Fixed(rem));
+            int = (int - rem) / 2;
         }
         return new Int(newA);
     }
@@ -216,6 +225,32 @@ class Int {
             newA.push(getBitNot(this.A[i]));
         }
         return new Int(newA);
+    }
+    /**
+     *  A ripple-carry adder.
+     *
+     * @param {Int} that
+     * @param {Bit} cin
+     * @returns this + that + cin
+     */
+    rca(that, cin) {
+        let newA = [];
+        let A = this.A;
+        let B = that.A;
+        for (let i = 0; i < N; i++) {
+            newA.push(getBitXor(cin, getBitXor(A[i], B[i])));
+            cin = getBitOr(getBitOr(getBitAnd(A[i], B[i]), getBitAnd(A[i], cin)), getBitAnd(B[i], cin));
+        }
+        return new Int(newA);
+    }
+    add(that) {
+        return this.rca(that, new Fixed(0));
+    }
+    sub(that) {
+        return this.rca(that.not(), new Fixed(1));
+    }
+    neg() {
+        return Int.fromInt(0).sub(this);
     }
 }
 
@@ -269,6 +304,8 @@ assertSameFixedInt(int(27), int(27));
 assertDifferentFixedInt(int(3), int(4));
 assertSameFixedInt(int(6).or(int(5)), int(7));
 assertDifferentFixedInt(int(6).or(int(4)), int(7));
+assertSameFixedInt(int(2 ** N - 1), int(0).sub(int(1)));
+assertSameFixedInt(int(2 ** N - 1), int(1).neg());
 
 import antlr4 from "antlr4";
 import ExpressionLexer from "../build/ExpressionLexer";
@@ -321,6 +358,12 @@ class Evaluate extends ExpressionVisitor {
             let first = this.visit(ctx.left);
             let second = this.visit(ctx.right);
             let op = ctx.op.text;
+            if (op === "+") {
+                return first.add(second);
+            }
+            if (op === "-") {
+                return first.sub(second);
+            }
             if (op === "&") {
                 return first.and(second);
             }
@@ -338,6 +381,12 @@ class Evaluate extends ExpressionVisitor {
             let expr = this.visit(ctx.unOp());
             assert(expr.name === "Int");
             let op = ctx.op.text;
+            if (op === "+") {
+                return expr;
+            }
+            if (op === "-") {
+                return expr.neg();
+            }
             if (op === "!") {
                 return expr.not();
             }
@@ -391,6 +440,7 @@ let setOutput = () => {
         document.getElementById("output").innerHTML = outputInt.toString();
     } catch (err) {
         document.getElementById("output").innerHTML = "Error! Can't parse";
+        throw err;
     }
 };
 
