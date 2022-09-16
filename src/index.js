@@ -12,6 +12,16 @@ var assert = (bool, message) => {
     }
 };
 
+/**
+ * Detects if the given value is a number.
+ *
+ * @param {*} n
+ * @returns true if n is a number and false otherwise
+ */
+var isNumber = (n) => {
+    return typeof n === "number";
+};
+
 var N = 32; //number of bits
 
 // Bit = Fixed(0|1) + Var(n: number) + And(Array<Bit>)
@@ -39,6 +49,7 @@ class Var {
      * @param {string} vn
      */
     constructor(n, vn) {
+        assert(isNumber(n));
         this.v = "Var";
         this.p = 100;
         this.index = n;
@@ -52,6 +63,7 @@ class Var {
 class And {
     constructor(A) {
         /* A: Array<Bit> */
+        assert(A.every((bit) => bit.name === "Bit"));
         this.v = "And";
         this.p = 50;
         this.A = A;
@@ -84,9 +96,7 @@ let getBitAnd = (a, b) => {
 class Or {
     constructor(A) {
         /* A: Array<Bit> */
-        for (let b of A) {
-            assert(b.name === "Bit");
-        }
+        assert(A.every((bit) => bit.name === "Bit"));
         this.v = "Or";
         this.p = 30;
         this.A = A;
@@ -119,6 +129,7 @@ let getBitOr = (a, b) => {
 class Not {
     constructor(b) {
         /* b: Bit */
+        assert(b.name === "Bit");
         this.v = "Not";
         this.p = 70;
         this.b = b;
@@ -141,11 +152,7 @@ let getBitNot = (b) => {
         return new Or(b.A.map((c) => getBitNot(c)));
     }
     if (b.v === "Or") {
-        return new And(
-            b.A.map((c) => {
-                getBitNot(c);
-            })
-        );
+        return new And(b.A.map((c) => getBitNot(c)));
     }
     if (b.v === "Fixed") {
         return new Fixed(1 - b.value);
@@ -159,6 +166,7 @@ let getBitNot = (b) => {
  * @returns {Bit} a Bit corresponding to a^b, simplified if possible.
  */
 let getBitXor = (a, b) => {
+    assert(a.name === "Bit" && b.name === "Bit");
     return getBitOr(getBitAnd(a, getBitNot(b)), getBitAnd(getBitNot(a), b));
 };
 
@@ -175,6 +183,8 @@ class Int {
     constructor(A) {
         /* A: Array<Bit> */
         assert(A.length === N, `Int must have correct number of bits ${N}, not ${A.length}`);
+        console.log("get A", A);
+        assert(A.every((bit) => bit.name === "Bit"));
         this.A = A;
         this.name = "Int";
     }
@@ -193,6 +203,7 @@ class Int {
             newA.push(new Fixed(rem));
             int = (int - rem) / 2;
         }
+        console.log("from Int A", newA);
         return new Int(newA);
     }
     /**
@@ -201,6 +212,7 @@ class Int {
      * @returns
      */
     and(that) {
+        assert(that.name === "Int");
         let newA = [];
         for (let i = 0; i < N; i++) {
             newA.push(getBitAnd(this.A[i], that.A[i]));
@@ -213,6 +225,7 @@ class Int {
      * @returns
      */
     or(that) {
+        assert(that.name === "Int");
         let newA = [];
         for (let i = 0; i < N; i++) {
             newA.push(getBitOr(this.A[i], that.A[i]));
@@ -234,6 +247,8 @@ class Int {
      * @returns this + that + cin
      */
     rca(that, cin) {
+        assert(that.name === "Int");
+        assert(cin.name === "Bit");
         let newA = [];
         let A = this.A;
         let B = that.A;
@@ -244,13 +259,56 @@ class Int {
         return new Int(newA);
     }
     add(that) {
+        assert(that.name === "Int");
         return this.rca(that, new Fixed(0));
     }
     sub(that) {
+        assert(that.name === "Int");
         return this.rca(that.not(), new Fixed(1));
     }
     neg() {
         return Int.fromInt(0).sub(this);
+    }
+    /**
+     * Shifts right by 2**exp if cond is true.
+     * Keep in mind that cond may be a variable expression.
+     *
+     * @param {number} exp
+     * @param {Bit} cond
+     */
+    bsft(exp, cond) {
+        let newA = [];
+        for (let i = 0; i < N; i++) {
+            let value;
+            if (i + 2 ** exp < N) {
+                value = getBitOr(getBitAnd(this.A[i + 2 ** exp], cond), getBitAnd(this.A[i], getBitNot(cond)));
+            } else {
+                value = getBitAnd(this.A[i], getBitNot(cond));
+            }
+            newA.push(value);
+        }
+        return new Int(newA);
+    }
+    /**
+     *
+     * @param {Int} that
+     * @returns this >> that
+     */
+    rsft(that) {
+        let newInt = new Int(this.A);
+        for (let i = 0; i < Math.log2(N); i++) {
+            let cond = that.A[i];
+            newInt = newInt.bsft(i, cond);
+        }
+        return newInt;
+    }
+    lsft(that) {
+        let newA = this.A.map((bit) => bit);
+        newA.reverse();
+        let newInt = new Int(newA).rsft(that);
+        newA = newInt.A;
+        newA.reverse();
+        return new Int(newA);
     }
 }
 
@@ -363,6 +421,12 @@ class Evaluate extends ExpressionVisitor {
             }
             if (op === "-") {
                 return first.sub(second);
+            }
+            if (op === "<<") {
+                return first.lsft(second);
+            }
+            if (op === ">>") {
+                return first.rsft(second);
             }
             if (op === "&") {
                 return first.and(second);
