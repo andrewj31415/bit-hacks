@@ -214,8 +214,12 @@ class Int {
         this.A = A;
         this.name = "Int";
     }
-    toString() {
-        return this.A.map((bit) => bit.toString()).join(" ");
+    toString(reverseBits = false, littleEndian = false) {
+        let bitStrings = this.A.map((bit) => bit.toString());
+        if (reverseBits) {
+            bitStrings.reverse();
+        }
+        return bitStrings.join(" ");
     }
     /**
      *
@@ -486,10 +490,7 @@ class Evaluate extends ExpressionVisitor {
     // Visit a parse tree produced by ExpressionParser#number.
     visitNumber(ctx) {
         let value = ctx.getText();
-        if ("ulUL".includes(value.slice(-1))) {
-            value = value.slice(0, -1);
-        }
-        if ("ulUL".includes(value.slice(-1))) {
+        while (value.slice(-1) === "u" || value.slice(-1) === "U" || value.slice(-1) === "l" || value.slice(-1) === "L") {
             value = value.slice(0, -1);
         }
         return Int.fromString(value);
@@ -657,7 +658,7 @@ try {
 }
 assert(worked, "Must throw error on invalid string");
 
-let tree1 = getParseTree("0xFfLU");
+let tree1 = getParseTree("0xFfULL");
 assert(visitor.visit(tree1).toString() === int(255).toString());
 
 let setOutput = () => {

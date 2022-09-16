@@ -5,7 +5,7 @@ grammar Expression;
 Whitespace  : [ \t\r\n]+ -> skip ;
 
 Variable : [a-zA-Z] [a-zA-Z0-9_]* ;
-Number : (([0-9]+) | ('0x' [0-9a-fA-F]+)) ((('U' | 'u')? ('L' | 'l')?)|(('L' | 'l')? ('U' | 'u')?)) ;
+Number : (([0-9]+) | ('0x' [0-9a-fA-F]+)) [ulUL]* ;
 
 
 input : expr EOF ;
