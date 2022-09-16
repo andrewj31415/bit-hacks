@@ -17,11 +17,12 @@ expr :  '(' expr ')'
     | binOp
     ;
 
-binOp : left=binOp op=('&' | '|') right=binOp
+binOp :  left=binOp op='&' right=binOp
+    | left=binOp op='|' right=binOp
     | unOp
     ;
 
-unOp : op=('!' | '-') expr
+unOp : op=('!' | '~') unOp
     | exprPrimary;
 
 
