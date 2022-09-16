@@ -2,12 +2,24 @@
 <html>
     <head>
         <title>Bit Hacks</title>
+        <style>
+            #root {
+                font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono,
+                    Courier New; /* see https://meta.stackexchange.com/questions/36176/whats-the-font-used-in-code-blocks */
+            }
+        </style>
     </head>
 
-    <body>
+    <body id="root">
         <div>Bit hack fun!</div>
-        <textarea id="input">1 & ( a | !b & 0)</textarea>
-        <button id="goButton">Go!</button>
+        <div id="funcDecl">
+            <div>uint32 bit_hack(uint32 x) {</div>
+            <div style="display: inline-block">return</div>
+            <textarea id="input" style="display: inline-block">x & 34957</textarea>
+            <div style="display: inline-block">;</div>
+            <div>}</div>
+        </div>
+        <button id="goButton">>>> bit_hack(x)</button>
         <div id="output"></div>
     </body>
     <script src="./dist/bundle.js"></script>

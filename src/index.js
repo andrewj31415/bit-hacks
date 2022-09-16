@@ -1,9 +1,18 @@
 // for simple assertions
+
+/**
+ *  Throws the given message if bool is false.
+ *
+ * @param {boolean} bool
+ * @param {string} message
+ */
 var assert = (bool, message) => {
     if (!bool) {
         throw new Error(message);
     }
 };
+
+var N = 32; //number of bits
 
 // Bit = Fixed(0|1) + Var(n: number) + And(Array<Bit>)
 // every Bit has a .v (variant: string) and a .p (precednce: number).
@@ -49,13 +58,10 @@ class And {
     }
 }
 let getBitAnd = (a, b) => {
-    console.log("getting and", a, b);
     if (a.v === "Fixed") {
-        console.log(a.value === 0 ? a : b);
         return a.value === 0 ? a : b;
     }
     if (b.v === "Fixed") {
-        console.log(b.value === 0 ? b : a);
         return b.value === 0 ? b : a;
     }
     return new And([a, b]);
@@ -72,20 +78,16 @@ class Or {
         this.name = "Bit";
     }
     toString() {
-        console.log("A", this.A);
         return this.A.map((b) => {
             return (this.p > b.p ? "(" : "") + b.toString() + (this.p > b.p ? ")" : "");
         }).join("|");
     }
 }
 let getBitOr = (a, b) => {
-    console.log("getting or", a, b);
     if (a.v === "Fixed") {
-        console.log(a.value === 1 ? a : b);
         return a.value === 1 ? a : b;
     }
     if (b.v === "Fixed") {
-        console.log(b.value === 1 ? b : a);
         return b.value === 1 ? b : a;
     }
     return new Or([a, b]);
@@ -121,20 +123,33 @@ let getBitNot = (b) => {
     }
     return new Not(b);
 };
-console.log(getBitNot(new Var(1)).toString());
-console.log(getBitNot(getBitNot(new Var(1))).toString());
+// console.log(getBitNot(new Var(1)).toString());
+// console.log(getBitNot(getBitNot(new Var(1))).toString());
 
 // a bitstring
+/**
+ * An N-bit integer.
+ */
 class Int {
+    /**
+     *  Constructs an integer whose ith bit is A[i].
+     *
+     * @param {Array<Bit>} A
+     */
     constructor(A) {
         /* A: Array<Bit> */
-        assert(A.length === N, `Int must have correct number of bits ${N}, not ${A.length} from A=${A}`);
+        assert(A.length === N, `Int must have correct number of bits ${N}, not ${A.length}`);
         this.A = A;
         this.name = "Int";
     }
     toString() {
         return this.A.map((bit) => bit.toString()).join(" ");
     }
+    /**
+     *
+     * @param {number} int the value of the int
+     * @returns an Int, all of whose bits are fixed values
+     */
     static fromInt(int) {
         let newA = [];
         for (let i = 0; i < N; i++) {
@@ -182,17 +197,13 @@ class Evaluate extends ExpressionVisitor {
         for (let i = 0; i < N; i++) {
             newA.push(new Var(i));
         }
-        console.log("put together", newA);
         let val = new Int(newA);
-        console.log("val", val);
         return val;
     }
 
     // Visit a parse tree produced by ExpressionParser#number.
     visitNumber(ctx) {
         let value = Int.fromInt(Number(ctx.getText()));
-        console.log(value);
-        console.log(value.name);
         assert(value.name === "Int");
         return value;
     }
@@ -212,18 +223,14 @@ class Evaluate extends ExpressionVisitor {
     visitBinOp(ctx) {
         if (ctx.unOp() !== null) {
             let value = this.visit(ctx.unOp());
-            console.log(value);
             assert(value.name === "Int");
             return value;
         }
         if (ctx.op !== null) {
-            console.log("going to", ctx.left.getText());
             let first = this.visit(ctx.left);
             let second = this.visit(ctx.right);
             let op = ctx.op.text;
             if (op === "&") {
-                console.log(first);
-                console.log(first.and);
                 return first.and(second);
             }
             if (op === "|") {
@@ -241,8 +248,6 @@ class Evaluate extends ExpressionVisitor {
             assert(expr.name === "Int");
             let op = ctx.op.text;
             if (op === "!") {
-                console.log(ctx);
-                console.log(ctx.getText());
                 return expr.not();
             }
             if (op === "~") {
@@ -279,21 +284,30 @@ class Evaluate extends ExpressionVisitor {
     }
 }
 
-var N = 32; //number of bits
+let setOutput = () => {
+    try {
+        let text = document.getElementById("input").value;
+        let stream = new antlr4.InputStream(text);
+        let lexer = new ExpressionLexer(stream);
+        let tokens = new antlr4.CommonTokenStream(lexer);
+        let parser = new ExpressionParser(tokens);
+        let tree = parser.expr();
+        // console.log("Parsed", tree);
+        // console.log(tree.toStringTree(null, parser));
+
+        let visitor = new Evaluate();
+        let outputInt = visitor.visit(tree);
+        document.getElementById("output").textContent = outputInt.toString();
+    } catch (err) {
+        document.getElementById("output").textContent = "Error! Can't parse";
+    }
+};
 
 //add interactivity
 document.getElementById("goButton").addEventListener("click", () => {
-    let text = document.getElementById("input").value;
-    console.log("text", text);
-    let stream = new antlr4.InputStream(text);
-    let lexer = new ExpressionLexer(stream);
-    let tokens = new antlr4.CommonTokenStream(lexer);
-    let parser = new ExpressionParser(tokens);
-    let tree = parser.expr();
-    // console.log("Parsed", tree);
-    console.log(tree.toStringTree(null, parser));
-
-    let visitor = new Evaluate();
-    let outputInt = visitor.visit(tree);
-    document.getElementById("output").textContent = outputInt.toString();
+    setOutput();
 });
+document.getElementById("input").addEventListener("input", () => {
+    setOutput();
+});
+setOutput();
