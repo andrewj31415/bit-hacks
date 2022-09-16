@@ -2,6 +2,11 @@
 
 var N = Number(document.getElementById("box1").value); //number of bits
 
+//anything that produces a boolean expression with more terms than MAX_WEIGHT throws
+//an error to avoid the page freezing.
+var MAX_WEIGHT = 10000000 / 2;
+var MAX_WEIGHT_ERR = "Too complicated to calculate. Try a shorter bit width (uint8_t).";
+
 /**
  *  Throws the given message if bool is false.
  *
@@ -28,6 +33,7 @@ var isNumber = (n) => {
 // every Bit has a .v (variant: string) and a .p (precednce: number).
 // atomic Bit values (Fixed, Var) have precedence 100.
 // Every bit has .name = "Bit" for type-checking.
+// Every bit has .weight: number to avoid page freezing.
 class Fixed {
     constructor(s) {
         /* s: 0|1 */
@@ -36,6 +42,7 @@ class Fixed {
         this.p = 100;
         this.value = s;
         this.name = "Bit";
+        this.weight = 0;
     }
     toString() {
         return String(this.value);
@@ -55,6 +62,7 @@ class Var {
         this.index = n;
         this.vn = vn;
         this.name = "Bit";
+        this.weight = 1;
     }
     toString() {
         return `<span class="red">${this.vn}<sub>${this.index}</sub></span>`;
@@ -68,6 +76,14 @@ class And {
         this.p = 50;
         this.A = A;
         this.name = "Bit";
+        this.weight =
+            1 +
+            A.reduce((prev, cur) => {
+                return prev + cur.weight;
+            }, 0);
+        if (this.weight > MAX_WEIGHT) {
+            throw new Error(MAX_WEIGHT_ERR);
+        }
     }
     toString() {
         // the explicit conversion to string is only for type-checking.
@@ -101,6 +117,14 @@ class Or {
         this.p = 30;
         this.A = A;
         this.name = "Bit";
+        this.weight =
+            1 +
+            A.reduce((prev, cur) => {
+                return prev + cur.weight;
+            }, 0);
+        if (this.weight > MAX_WEIGHT) {
+            throw new Error(MAX_WEIGHT_ERR);
+        }
     }
     toString() {
         // the explicit conversion to string is only for type-checking.
@@ -134,6 +158,10 @@ class Not {
         this.p = 70;
         this.b = b;
         this.name = "Bit";
+        this.weight = 1 + b.weight;
+        if (this.weight > MAX_WEIGHT) {
+            throw new Error(MAX_WEIGHT_ERR);
+        }
     }
     toString() {
         return "!" + (this.p > this.b.p ? "(" : "") + this.b.toString() + (this.p > this.b.p ? ")" : "");
@@ -622,19 +650,27 @@ let tree1 = getParseTree("0xFfLU");
 assert(visitor.visit(tree1).toString() === int(255).toString());
 
 let setOutput = () => {
-    try {
-        let text = document.getElementById("input").value;
-        let tree = getParseTree(text);
-        // console.log("Parsed", tree);
-        // console.log(tree.toStringTree(null, parser));
-        let outputInt = visitor.visit(tree);
-        document.getElementById("output").innerHTML = outputInt.toString();
-        document.getElementById("warning").textContent = "";
-    } catch (err) {
-        document.getElementById("output").textContent = `Error! Can't parse`;
-        document.getElementById("warning").textContent = `${err.message}`;
-        throw err;
-    }
+    document.getElementById("output").innerHTML = "Processing ...";
+    document.getElementById("warning").textContent = "";
+    document.getElementById("input").readOnly = "true"; //ignore user typing while processing to avoid chaining errors
+    //setTimeout allows the page to update and show the "Processing ..." message.
+    setTimeout(() => {
+        try {
+            let text = document.getElementById("input").value;
+            let tree = getParseTree(text);
+            // console.log("Parsed", tree);
+            // console.log(tree.toStringTree(null, parser));
+            let outputInt = visitor.visit(tree);
+            document.getElementById("output").innerHTML = outputInt.toString();
+            document.getElementById("warning").textContent = "";
+            document.getElementById("input").removeAttribute("readonly");
+        } catch (err) {
+            document.getElementById("input").removeAttribute("readonly");
+            document.getElementById("output").textContent = `Error!`;
+            document.getElementById("warning").textContent = `${err.message}`;
+            throw err;
+        }
+    }, 1);
 };
 
 //add interactivity
