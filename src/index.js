@@ -183,7 +183,6 @@ class Int {
     constructor(A) {
         /* A: Array<Bit> */
         assert(A.length === N, `Int must have correct number of bits ${N}, not ${A.length}`);
-        console.log("get A", A);
         assert(A.every((bit) => bit.name === "Bit"));
         this.A = A;
         this.name = "Int";
@@ -203,7 +202,6 @@ class Int {
             newA.push(new Fixed(rem));
             int = (int - rem) / 2;
         }
-        console.log("from Int A", newA);
         return new Int(newA);
     }
     /**
@@ -309,6 +307,23 @@ class Int {
         newA = newInt.A;
         newA.reverse();
         return new Int(newA);
+    }
+    mul(that) {
+        let newInt = Int.fromInt(0);
+        for (let i = 0; i < N; i++) {
+            //multiply this by the ith bit of that, then add it to newInt
+            let nextA = [];
+            for (let j = 0; j < N; j++) {
+                if (j < i) {
+                    nextA.push(new Fixed(0));
+                } else {
+                    nextA.push(getBitAnd(this.A[j - i], that.A[i]));
+                }
+            }
+            let nextInt = new Int(nextA);
+            newInt = newInt.add(nextInt);
+        }
+        return newInt;
     }
 }
 
@@ -416,6 +431,9 @@ class Evaluate extends ExpressionVisitor {
             let first = this.visit(ctx.left);
             let second = this.visit(ctx.right);
             let op = ctx.op.text;
+            if (op === "*") {
+                return first.mul(second);
+            }
             if (op === "+") {
                 return first.add(second);
             }
