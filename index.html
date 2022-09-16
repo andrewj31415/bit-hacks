@@ -16,7 +16,20 @@
     <body id="root">
         <div>Bit hack fun!</div>
         <div id="funcDecl">
-            <div>uint32_t bit_hack(uint32_t x) {</div>
+            <div>
+                uint<select id="box1" onchange="box2.value=this.value;">
+                    <!-- See https://stackoverflow.com/questions/8547328/how-to-synchronize-two-select-elements -->
+                    <option value="64">64</option>
+                    <option value="8">8</option>
+                    <option value="16">16</option>
+                    <option value="32">32</option></select
+                >_t bit_hack(uint<select id="box2" onchange="box1.value=this.value;">
+                    <option value="64">64</option>
+                    <option value="8">8</option>
+                    <option value="16">16</option>
+                    <option value="32">32</option></select
+                >_t x) {
+            </div>
             <div style="display: inline-block">return</div>
             <textarea id="input" style="display: inline-block">x | (255 << 8)</textarea>
             <div style="display: inline-block">;</div>
@@ -25,5 +38,8 @@
         <button id="goButton">>>> bit_hack(x)</button>
         <div id="output"></div>
     </body>
+    <!-- <script>
+        var N = 64; //number of bits
+    </script> -->
     <script src="./dist/bundle.js"></script>
 </html>

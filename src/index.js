@@ -1,5 +1,7 @@
 // for simple assertions
 
+var N = Number(document.getElementById("box1").value); //number of bits
+
 /**
  *  Throws the given message if bool is false.
  *
@@ -21,8 +23,6 @@ var assert = (bool, message) => {
 var isNumber = (n) => {
     return typeof n === "number";
 };
-
-var N = 32; //number of bits
 
 // Bit = Fixed(0|1) + Var(n: number) + And(Array<Bit>)
 // every Bit has a .v (variant: string) and a .p (precednce: number).
@@ -170,7 +170,6 @@ let getBitXor = (a, b) => {
     return getBitOr(getBitAnd(a, getBitNot(b)), getBitAnd(getBitNot(a), b));
 };
 
-// a bitstring
 /**
  * An N-bit integer.
  */
@@ -203,6 +202,43 @@ class Int {
             int = (int - rem) / 2;
         }
         return new Int(newA);
+    }
+    /**
+     * Converts the string s, possibly representing a value
+     * larger than JavaScript's max into, into an int.
+     *
+     * @param {string} s representing a number
+     * @returns the Int corresponding to s
+     */
+    static fromString(s) {
+        let newInt = Int.fromInt(0);
+        if (s.slice(0, 2) === "0x") {
+            //hex
+            s = s.slice(2);
+            for (let i = 0; i < s.length; i++) {
+                let nextDigit = Int.fromInt(parseInt("0x" + s[s.length - 1 - i])).lsft(Int.fromInt(4 * i));
+                newInt = newInt.add(nextDigit);
+            }
+        } else if (s[0] === "0") {
+            //octal
+            let eight = Int.fromInt(8);
+            let powEight = Int.fromInt(1);
+            for (let i = 0; i < s.length; i++) {
+                let nextDigit = Int.fromInt(parseInt(s[s.length - 1 - i]));
+                newInt = newInt.add(nextDigit.mul(powEight));
+                powEight = powEight.mul(eight);
+            }
+        } else {
+            //decimal
+            let ten = Int.fromInt(10);
+            let powTen = Int.fromInt(1);
+            for (let i = 0; i < s.length; i++) {
+                let nextDigit = Int.fromInt(parseInt(s[s.length - 1 - i]));
+                newInt = newInt.add(nextDigit.mul(powTen));
+                powTen = powTen.mul(ten);
+            }
+        }
+        return newInt;
     }
     /**
      *
@@ -294,7 +330,7 @@ class Int {
      */
     rsft(that) {
         let newInt = new Int(this.A);
-        for (let i = 0; i < Math.log2(N); i++) {
+        for (let i = 0; i < N; i++) {
             let cond = that.A[i];
             newInt = newInt.bsft(i, cond);
         }
@@ -323,6 +359,7 @@ class Int {
             let nextInt = new Int(nextA);
             newInt = newInt.add(nextInt);
         }
+        assert(newInt.name === "Int");
         return newInt;
     }
 }
@@ -377,8 +414,16 @@ assertSameFixedInt(int(27), int(27));
 assertDifferentFixedInt(int(3), int(4));
 assertSameFixedInt(int(6).or(int(5)), int(7));
 assertDifferentFixedInt(int(6).or(int(4)), int(7));
+let oldN = N;
+N = 32; //32-bit tests since JS only supports 53-bit integers
 assertSameFixedInt(int(2 ** N - 1), int(0).sub(int(1)));
 assertSameFixedInt(int(2 ** N - 1), int(1).neg());
+assertSameFixedInt(int(2 ** N - 1).rsft(int(32)), int(0));
+assertSameFixedInt(int(1).lsft(int(37)), int(0));
+assertSameFixedInt(Int.fromString("157"), int(157));
+assertSameFixedInt(Int.fromString("0x9d"), int(157));
+assertSameFixedInt(Int.fromString("0235"), int(157));
+N = oldN;
 
 import antlr4 from "antlr4";
 import ExpressionLexer from "../build/ExpressionLexer";
@@ -404,9 +449,14 @@ class Evaluate extends ExpressionVisitor {
 
     // Visit a parse tree produced by ExpressionParser#number.
     visitNumber(ctx) {
-        let value = Int.fromInt(Number(ctx.getText()));
-        assert(value.name === "Int");
-        return value;
+        let value = ctx.getText();
+        if ("ulUL".includes(value.slice(-1))) {
+            value = value.slice(0, -1);
+        }
+        if ("ulUL".includes(value.slice(-1))) {
+            value = value.slice(0, -1);
+        }
+        return Int.fromString(value);
     }
 
     // Visit a parse tree produced by ExpressionParser#expr.
@@ -506,18 +556,79 @@ class Evaluate extends ExpressionVisitor {
     }
 }
 
+// See https://stackoverflow.com/questions/51683104/how-to-catch-minor-errors
+// and https://stackoverflow.com/questions/45025556/why-is-antlr-omitting-the-final-token-and-not-producing-an-error
+
+import DefaultErrorStrategy from "../node_modules/antlr4/src/antlr4/error/DefaultErrorStrategy";
+
+class StrictErrorStrategy extends DefaultErrorStrategy {
+    recover(recognizer, e) {
+        token = recognizer.CurrentToken;
+        message = string.Format(
+            "parse error at line {0}, position {1} right before {2} ",
+            token.Line,
+            token.Column,
+            GetTokenErrorDisplay(token)
+        );
+        throw new Exception(message, e);
+    }
+
+    recoverInline(recognizer) {
+        token = recognizer.CurrentToken;
+        message = string.Format(
+            "parse error at line {0}, position {1} right before {2} ",
+            token.Line,
+            token.Column,
+            GetTokenErrorDisplay(token)
+        );
+        throw new Exception(message, new InputMismatchException(recognizer));
+    }
+    sync(recognizer) {
+        /* do nothing to resync */
+    }
+}
+
+class StrictLexer extends ExpressionLexer {
+    recover(e) {
+        message = string.Format("lex error after token {0} at position {1}", _lasttoken.Text, e.StartIndex);
+        throw new ParseCanceledException(BasicEnvironment.SyntaxError);
+    }
+}
+
+let stream = new antlr4.InputStream("");
+let lexer = new ExpressionLexer(stream);
+let tokens = new antlr4.CommonTokenStream(lexer);
+var parser = new ExpressionParser(tokens); //make parser available for debugging statements like console.log(tree.toStringTree(null, parser))
+var visitor = new Evaluate();
+
+let getParseTree = (text) => {
+    let stream = new antlr4.InputStream(text);
+    let lexer = new StrictLexer(stream);
+    let tokens = new antlr4.CommonTokenStream(lexer);
+    let parser = new ExpressionParser(tokens);
+    parser.removeParseListeners();
+    parser._errHandler = new StrictErrorStrategy();
+    let tree = parser.expr();
+    return tree;
+};
+
+let worked = false;
+try {
+    getParseTree("(1 <)");
+} catch (e) {
+    worked = true;
+}
+assert(worked, "Must throw error on invalid string");
+
+let tree1 = getParseTree("0xFfLU");
+assert(visitor.visit(tree1).toString() === int(255).toString());
+
 let setOutput = () => {
     try {
         let text = document.getElementById("input").value;
-        let stream = new antlr4.InputStream(text);
-        let lexer = new ExpressionLexer(stream);
-        let tokens = new antlr4.CommonTokenStream(lexer);
-        let parser = new ExpressionParser(tokens);
-        let tree = parser.expr();
+        let tree = getParseTree(text);
         // console.log("Parsed", tree);
         // console.log(tree.toStringTree(null, parser));
-
-        let visitor = new Evaluate();
         let outputInt = visitor.visit(tree);
         document.getElementById("output").innerHTML = outputInt.toString();
     } catch (err) {
@@ -534,3 +645,12 @@ document.getElementById("input").addEventListener("input", () => {
     setOutput();
 });
 setOutput();
+
+document.getElementById("box1").addEventListener("change", () => {
+    N = Number(document.getElementById("box1").value);
+    setOutput();
+});
+document.getElementById("box2").addEventListener("change", () => {
+    N = Number(document.getElementById("box2").value);
+    setOutput();
+});
