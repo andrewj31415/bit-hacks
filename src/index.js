@@ -294,6 +294,14 @@ class Int {
         }
         return new Int(newA);
     }
+    xor(that) {
+        assert(that.name === "Int");
+        let newA = [];
+        for (let i = 0; i < N; i++) {
+            newA.push(getBitXor(this.A[i], that.A[i]));
+        }
+        return new Int(newA);
+    }
     not() {
         let newA = [];
         for (let i = 0; i < N; i++) {
@@ -526,6 +534,9 @@ class Evaluate extends ExpressionVisitor {
             }
             if (op === "&") {
                 return first.and(second);
+            }
+            if (op === "^") {
+                return first.xor(second);
             }
             if (op === "|") {
                 return first.or(second);

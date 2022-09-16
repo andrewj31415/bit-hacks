@@ -21,6 +21,7 @@ binOp :  left=binOp op=('*' | '/' | '%') right=binOp
     | left=binOp op=('+' | '-') right=binOp
     | left=binOp op=('<<' | '>>') right=binOp
     | left=binOp op='&' right=binOp
+    | left=binOp op='^' right=binOp
     | left=binOp op='|' right=binOp
     | unOp
     ;
