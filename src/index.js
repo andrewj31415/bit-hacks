@@ -32,15 +32,21 @@ class Fixed {
     }
 }
 class Var {
-    constructor(n) {
-        /* n: number */
+    /**
+     *  The nth bith of variable vn.
+     *
+     * @param {number} n
+     * @param {string} vn
+     */
+    constructor(n, vn) {
         this.v = "Var";
         this.p = 100;
         this.index = n;
+        this.vn = vn;
         this.name = "Bit";
     }
     toString() {
-        return "x" + String(this.index);
+        return `<span class="red">${this.vn}<sub>${this.index}</sub></span>`;
     }
 }
 class And {
@@ -52,11 +58,20 @@ class And {
         this.name = "Bit";
     }
     toString() {
-        return this.A.map((b) => {
-            return (this.p > b.p ? "(" : "") + b.toString() + (this.p > b.p ? ")" : "");
-        }).join("&");
+        // the explicit conversion to string is only for type-checking.
+        return String(
+            this.A.map((b) => {
+                return (this.p > b.p ? "(" : "") + b.toString() + (this.p > b.p ? ")" : "");
+            }).join("&")
+        );
     }
 }
+/**
+ *
+ * @param {Bit} a
+ * @param {Bit} b
+ * @returns {Bit} a Bit corresponding to a&&b, simplified if possible.
+ */
 let getBitAnd = (a, b) => {
     if (a.v === "Fixed") {
         return a.value === 0 ? a : b;
@@ -78,11 +93,20 @@ class Or {
         this.name = "Bit";
     }
     toString() {
-        return this.A.map((b) => {
-            return (this.p > b.p ? "(" : "") + b.toString() + (this.p > b.p ? ")" : "");
-        }).join("|");
+        // the explicit conversion to string is only for type-checking.
+        return String(
+            this.A.map((b) => {
+                return (this.p > b.p ? "(" : "") + b.toString() + (this.p > b.p ? ")" : "");
+            }).join("|")
+        );
     }
 }
+/**
+ *
+ * @param {Bit} a
+ * @param {Bit} b
+ * @returns {Bit} a Bit corresponding to a||b, simplified if possible.
+ */
 let getBitOr = (a, b) => {
     if (a.v === "Fixed") {
         return a.value === 1 ? a : b;
@@ -104,6 +128,11 @@ class Not {
         return "!" + (this.p > this.b.p ? "(" : "") + this.b.toString() + (this.p > this.b.p ? ")" : "");
     }
 }
+/**
+ *
+ * @param {Bit} b
+ * @returns {Bit} a Bit corresponding to !b, simplified if possible.
+ */
 let getBitNot = (b) => {
     if (b.v === "Not") {
         return b.b;
@@ -157,6 +186,11 @@ class Int {
         }
         return new Int(newA);
     }
+    /**
+     *
+     * @param {Int} that
+     * @returns
+     */
     and(that) {
         let newA = [];
         for (let i = 0; i < N; i++) {
@@ -164,6 +198,11 @@ class Int {
         }
         return new Int(newA);
     }
+    /**
+     *
+     * @param {Int} that
+     * @returns
+     */
     or(that) {
         let newA = [];
         for (let i = 0; i < N; i++) {
@@ -180,6 +219,57 @@ class Int {
     }
 }
 
+/**
+ *  Convenient factory function
+ *
+ * @param {number} n
+ * @returns the Int corresponding to n
+ */
+var int = (n) => {
+    return Int.fromInt(n);
+};
+
+/**
+ * Throws unless int1 and int2
+ * represent the same number
+ *
+ * @param {Int} int1
+ * @param {Int} int2
+ */
+var assertSameFixedInt = (int1, int2) => {
+    for (let i = 0; i < N; i++) {
+        let b1 = int1.A[i];
+        let b2 = int2.A[i];
+        assert(b1.v === "Fixed");
+        assert(b2.v === "Fixed");
+        assert(b1.value === b2.value);
+    }
+};
+/**
+ * Throws unless int1 and int2
+ * represent numbers which are different
+ *
+ * @param {Int} int1
+ * @param {Int} int2
+ */
+var assertDifferentFixedInt = (int1, int2) => {
+    for (let i = 0; i < N; i++) {
+        let b1 = int1.A[i];
+        let b2 = int2.A[i];
+        assert(b1.v === "Fixed");
+        assert(b2.v === "Fixed");
+        if (b1.value === b2.value) {
+            return;
+        }
+    }
+    assert(false);
+};
+// some tests for Int
+assertSameFixedInt(int(27), int(27));
+assertDifferentFixedInt(int(3), int(4));
+assertSameFixedInt(int(6).or(int(5)), int(7));
+assertDifferentFixedInt(int(6).or(int(4)), int(7));
+
 import antlr4 from "antlr4";
 import ExpressionLexer from "../build/ExpressionLexer";
 import ExpressionParser from "../build/ExpressionParser";
@@ -193,9 +283,10 @@ class Evaluate extends ExpressionVisitor {
 
     // Visit a parse tree produced by ExpressionParser#variable.
     visitVariable(ctx) {
+        let varName = ctx.getText();
         let newA = [];
         for (let i = 0; i < N; i++) {
-            newA.push(new Var(i));
+            newA.push(new Var(i, varName));
         }
         let val = new Int(newA);
         return val;
@@ -297,9 +388,9 @@ let setOutput = () => {
 
         let visitor = new Evaluate();
         let outputInt = visitor.visit(tree);
-        document.getElementById("output").textContent = outputInt.toString();
+        document.getElementById("output").innerHTML = outputInt.toString();
     } catch (err) {
-        document.getElementById("output").textContent = "Error! Can't parse";
+        document.getElementById("output").innerHTML = "Error! Can't parse";
     }
 };
 

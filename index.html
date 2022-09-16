@@ -7,13 +7,16 @@
                 font-family: Consolas, Monaco, Lucida Console, Liberation Mono, DejaVu Sans Mono, Bitstream Vera Sans Mono,
                     Courier New; /* see https://meta.stackexchange.com/questions/36176/whats-the-font-used-in-code-blocks */
             }
+            .red {
+                color: red;
+            }
         </style>
     </head>
 
     <body id="root">
         <div>Bit hack fun!</div>
         <div id="funcDecl">
-            <div>uint32 bit_hack(uint32 x) {</div>
+            <div>uint32_t bit_hack(uint32_t x) {</div>
             <div style="display: inline-block">return</div>
             <textarea id="input" style="display: inline-block">x & 34957</textarea>
             <div style="display: inline-block">;</div>
