@@ -560,28 +560,25 @@ class Evaluate extends ExpressionVisitor {
 // and https://stackoverflow.com/questions/45025556/why-is-antlr-omitting-the-final-token-and-not-producing-an-error
 
 import DefaultErrorStrategy from "../node_modules/antlr4/src/antlr4/error/DefaultErrorStrategy";
+import InputMismatchException from "../node_modules/antlr4/src/antlr4/error/InputMismatchException.js";
 
 class StrictErrorStrategy extends DefaultErrorStrategy {
     recover(recognizer, e) {
-        token = recognizer.CurrentToken;
-        message = string.Format(
-            "parse error at line {0}, position {1} right before {2} ",
-            token.Line,
-            token.Column,
-            GetTokenErrorDisplay(token)
-        );
-        throw new Exception(message, e);
+        let token = recognizer.getCurrentToken();
+        let message = `parse error at line ${token.line}, position ${token.column} right before ${this.getTokenErrorDisplay(
+            token
+        )} `;
+        // console.log(e);
+        throw new Error(message);
     }
 
     recoverInline(recognizer) {
-        token = recognizer.CurrentToken;
-        message = string.Format(
-            "parse error at line {0}, position {1} right before {2} ",
-            token.Line,
-            token.Column,
-            GetTokenErrorDisplay(token)
-        );
-        throw new Exception(message, new InputMismatchException(recognizer));
+        let token = recognizer.getCurrentToken();
+        let message = `parse error at line ${token.line}, position ${token.column} right before ${this.getTokenErrorDisplay(
+            token
+        )} `;
+        // console.log(new InputMismatchException(recognizer));
+        throw new Error(message);
     }
     sync(recognizer) {
         /* do nothing to resync */
@@ -590,8 +587,9 @@ class StrictErrorStrategy extends DefaultErrorStrategy {
 
 class StrictLexer extends ExpressionLexer {
     recover(e) {
-        message = string.Format("lex error after token {0} at position {1}", _lasttoken.Text, e.StartIndex);
-        throw new ParseCanceledException(BasicEnvironment.SyntaxError);
+        // let message = `lex error after token ${this._lasttoken.Text} at position ${e.StartIndex}`;
+        let message = `lex error at token ${this._input.strdata[e.startIndex]} at position ${e.startIndex}`;
+        throw new Error(message);
     }
 }
 
@@ -606,7 +604,7 @@ let getParseTree = (text) => {
     let lexer = new StrictLexer(stream);
     let tokens = new antlr4.CommonTokenStream(lexer);
     let parser = new ExpressionParser(tokens);
-    parser.removeParseListeners();
+    // parser.removeParseListeners();
     parser._errHandler = new StrictErrorStrategy();
     let tree = parser.expr();
     return tree;
@@ -631,8 +629,10 @@ let setOutput = () => {
         // console.log(tree.toStringTree(null, parser));
         let outputInt = visitor.visit(tree);
         document.getElementById("output").innerHTML = outputInt.toString();
+        document.getElementById("warning").textContent = "";
     } catch (err) {
-        document.getElementById("output").innerHTML = "Error! Can't parse";
+        document.getElementById("output").textContent = `Error! Can't parse`;
+        document.getElementById("warning").textContent = `${err.message}`;
         throw err;
     }
 };
