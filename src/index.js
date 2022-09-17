@@ -1,6 +1,13 @@
 // for simple assertions
 
-var N = Number(document.getElementById("box1").value); //number of bits
+var N = 64; //number of bits
+
+document.getElementById("box1").value = N;
+document.getElementById("box2").value = N;
+
+var littleEndian = false;
+var reverseBits = true;
+var hideColors = false;
 
 //anything that produces a boolean expression with more terms than MAX_WEIGHT throws
 //an error to avoid the page freezing.
@@ -45,7 +52,7 @@ class Fixed {
         this.weight = 0;
     }
     toString() {
-        return String(this.value);
+        return `<span ${hideColors ? `` : `class="constant"`}>${this.value}</span>`;
     }
 }
 class Var {
@@ -65,13 +72,14 @@ class Var {
         this.weight = 1;
     }
     toString() {
-        return `<span class="red">${this.vn}<sub>${this.index}</sub></span>`;
+        return `<span ${hideColors ? `` : `class="variable"`}>${this.vn}<sub>${this.index}</sub></span>`;
     }
 }
 class And {
     constructor(A) {
         /* A: Array<Bit> */
         assert(A.every((bit) => bit.name === "Bit"));
+        assert(A.length >= 2);
         this.v = "And";
         this.p = 50;
         this.A = A;
@@ -107,12 +115,21 @@ let getBitAnd = (a, b) => {
     if (b.v === "Fixed") {
         return b.value === 0 ? b : a;
     }
+    if (a.v === "Var" && b.v === "Not" && b.b.v === "Var" && a.index === b.b.index && a.vn === b.b.vn) {
+        //x & !x = 0
+        return new Fixed(0);
+    }
+    if (b.v === "Var" && a.v === "Not" && a.b.v === "Var" && b.index === a.b.index && b.vn === a.b.vn) {
+        //!x & x = 0
+        return new Fixed(0);
+    }
     return new And([a, b]);
 };
 class Or {
     constructor(A) {
         /* A: Array<Bit> */
         assert(A.every((bit) => bit.name === "Bit"));
+        assert(A.length >= 2);
         this.v = "Or";
         this.p = 30;
         this.A = A;
@@ -148,6 +165,14 @@ let getBitOr = (a, b) => {
     if (b.v === "Fixed") {
         return b.value === 1 ? b : a;
     }
+    if (a.v === "Var" && b.v === "Not" && b.b.v === "Var" && a.index === b.b.index && a.vn === b.b.vn) {
+        //x | !x = 1
+        return new Fixed(1);
+    }
+    if (b.v === "Var" && a.v === "Not" && a.b.v === "Var" && b.index === a.b.index && b.vn === a.b.vn) {
+        //!x | x = 1
+        return new Fixed(1);
+    }
     return new Or([a, b]);
 };
 class Not {
@@ -177,10 +202,14 @@ let getBitNot = (b) => {
         return b.b;
     }
     if (b.v === "And") {
-        return new Or(b.A.map((c) => getBitNot(c)));
+        return b.A.map((c) => getBitNot(c)).reduce((prev, cur) => {
+            return getBitOr(prev, cur);
+        });
     }
     if (b.v === "Or") {
-        return new And(b.A.map((c) => getBitNot(c)));
+        return b.A.map((c) => getBitNot(c)).reduce((prev, cur) => {
+            return getBitAnd(prev, cur);
+        });
     }
     if (b.v === "Fixed") {
         return new Fixed(1 - b.value);
@@ -214,10 +243,16 @@ class Int {
         this.A = A;
         this.name = "Int";
     }
-    toString(reverseBits = false, littleEndian = false) {
+    toString() {
         let bitStrings = this.A.map((bit) => bit.toString());
         if (reverseBits) {
             bitStrings.reverse();
+        }
+        if (littleEndian) {
+            let oldBitStrings = bitStrings.map((bit) => bit);
+            for (let i = 0; i < N; i++) {
+                bitStrings[i] = oldBitStrings[i ^ 7];
+            }
         }
         return bitStrings.join(" ");
     }
@@ -662,9 +697,8 @@ let tree1 = getParseTree("0xFfULL");
 assert(visitor.visit(tree1).toString() === int(255).toString());
 
 let setOutput = () => {
-    document.getElementById("output").innerHTML = "Processing ...";
+    document.getElementById("output").textContent = "Processing ...";
     document.getElementById("warning").textContent = "";
-    document.getElementById("input").readOnly = "true"; //ignore user typing while processing to avoid chaining errors
     //setTimeout allows the page to update and show the "Processing ..." message.
     setTimeout(() => {
         try {
@@ -675,20 +709,15 @@ let setOutput = () => {
             let outputInt = visitor.visit(tree);
             document.getElementById("output").innerHTML = outputInt.toString();
             document.getElementById("warning").textContent = "";
-            document.getElementById("input").removeAttribute("readonly");
         } catch (err) {
-            document.getElementById("input").removeAttribute("readonly");
             document.getElementById("output").textContent = `Error!`;
             document.getElementById("warning").textContent = `${err.message}`;
             throw err;
         }
-    }, 1);
+    }, 0);
 };
 
 //add interactivity
-document.getElementById("goButton").addEventListener("click", () => {
-    setOutput();
-});
 document.getElementById("input").addEventListener("input", () => {
     setOutput();
 });
@@ -700,5 +729,18 @@ document.getElementById("box1").addEventListener("change", () => {
 });
 document.getElementById("box2").addEventListener("change", () => {
     N = Number(document.getElementById("box2").value);
+    setOutput();
+});
+
+document.getElementById("littleEndian").addEventListener("change", () => {
+    littleEndian = document.getElementById("littleEndian").checked;
+    setOutput();
+});
+document.getElementById("reverseBits").addEventListener("change", () => {
+    reverseBits = document.getElementById("reverseBits").checked;
+    setOutput();
+});
+document.getElementById("hideColors").addEventListener("change", () => {
+    hideColors = document.getElementById("hideColors").checked;
     setOutput();
 });
